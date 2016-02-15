@@ -20,6 +20,10 @@ board.on("ready", function() {
         firebase.child('light').on('value', d => {
             try {
                 const data = JSON.parse(d.val());
+                // Due to power draw, dont allow more than 15 lights
+                if (data.length > 15) {
+                    return;
+                }
 
                 strip.off();
                 data.forEach(([id, r, g, b]) => {
