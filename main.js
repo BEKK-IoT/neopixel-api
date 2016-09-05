@@ -6,53 +6,66 @@ const firebase = new Firebase("https://fiery-inferno-7517.firebaseio.com/gadgets
 const fblight = new Firebase("https://fiery-inferno-7517.firebaseio.com/gadgets/lamp");
 const board = new five.Board();
 
+const RELAY_PIN = 10;
+const STRIP_PIN = 6;
+
 board.on("ready", function() {
 
     console.log("Board ready, lets add light");
 
     // setup the node-pixel strip.
     let strip = new pixel.Strip({
-        strips: [{pin: 6, length: 50}],
+        strips: [{pin: STRIP_PIN, length: 60}],
         board: this,
         controller: "FIRMATA"
     });
 
-    function isNumberMax(n, max) {
-        return (n && parseInt(n) === n && parseInt(n) <= max && parseInt(n) >= 0);
-    }
+    const isNumberRange = (n, min, max) => {
+        try {
+            return parseInt(n) === n && n >= min && n <= max;
+        } catch(e) {
+            return false;
+        }
+    };
+
+    const setColor = (strip, id, r, g, b) => {
+        if (isNumberRange(id, 0, 59) && isNumberRange(r, 0, 255) && isNumberRange(g, 0, 255) && isNumberRange(b, 0, 255)) {
+            r = parseInt(r);
+            g = parseInt(g);
+            b = parseInt(b);
+            id = parseInt(id);
+            strip.pixel(id).color(`rgba(${r}, ${g}, ${b}, 0)`);
+            console.log(`Interacted with: ${id}`);
+        } else {
+            console.log('Incorrect numeric-value input');
+        }
+    };
 
     strip.on("ready", function () {
         firebase.child('light').on('value', d => {
-                console.log(d.val());
+                // console.log(d.val());
                 var data = d.val();
-                // Due to power draw, dont allow more than 15 lights
-                if (!data || data.length > 59) {
+                if (data == null || typeof data != 'object') {
+                    console.log('Incorrect data-type');
                     return;
                 }
-
-                console.log(data);
-                data.forEach(([id, r, g, b]) => {
-                    if (isNumberMax(id, 59) && isNumberMax(r, 255) && isNumberMax(g, 255) && isNumberMax(b, 255)) {
-                        r = parseInt(r);
-                        g = parseInt(g);
-                        b = parseInt(b);
-                        id = parseInt(id);
-                        strip.pixel(id).color(`rgba(${r}, ${g}, ${b}, 0)`);
-                    } else {
-                        console.log('Incorrect input');
+                data.forEach(data => {
+                    if (!data || data.length != 4) {
+                        console.log('Incorrect data-format');
+                        return;
                     }
+                    setColor(strip, ...data);
                 });
                 strip.show();
-
         });
     });
 
-    var relay = new five.Relay(10);
+    var relay = new five.Relay(RELAY_PIN);
     fblight.child('switch').on('value', d => { 
         var data = d.val();
         console.log(data);
 
-        if (!data) {
+        if (data) {
             relay.on();
         } else {
             relay.off();
